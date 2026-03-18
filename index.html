@@ -62,6 +62,7 @@
     const isHol=d=>getHolidays(d.getFullYear()).has(d.toDateString());
     const isWkd=d=>d.getDay()===0||d.getDay()===6;
     function prevBD(dt){const d=new Date(dt);while(isWkd(d)||isHol(d))d.setDate(d.getDate()-1);return d;}
+    function getPeriodEnd(d){return d.getDate()<15?new Date(d.getFullYear(),d.getMonth(),14):new Date(d.getFullYear(),d.getMonth()+1,0);}
 
     // ─── Génération paiements ──────────────────────────────────────────────
     function generatePayments(monthsAhead=10){
@@ -106,9 +107,17 @@
         return Object.values(map).sort((a,b)=>a.date-b.date);
       },[upcoming]);
 
-      const next30=upcoming.filter(p=>daysUntil(p.adjusted)<=30&&!paid[p.key]);
-      const perso30=next30.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
-      const conj30=next30.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
+      const curY=today.getFullYear(),curM=today.getMonth();
+      const p1Start=new Date(curY,curM,1),p1End=new Date(curY,curM,14);
+      const p2Start=new Date(curY,curM,15),p2End=new Date(curY,curM+1,0);
+      const curMonthLabel=fd(today,{month:"short"});
+      const lastDayOfMonth=p2End.getDate();
+      const p1Pmts=allPayments.filter(p=>p.adjusted>=p1Start&&p.adjusted<=p1End&&!paid[p.key]);
+      const p2Pmts=allPayments.filter(p=>p.adjusted>=p2Start&&p.adjusted<=p2End&&!paid[p.key]);
+      const persoP1=p1Pmts.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
+      const conjP1=p1Pmts.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
+      const persoP2=p2Pmts.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
+      const conjP2=p2Pmts.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
 
       const monthlyGroups=useMemo(()=>{
         const map={};
@@ -151,13 +160,19 @@
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[
-                {label:"Perso",amount:perso30,faded:"#93c5fd",softBg:"rgba(59,130,246,0.15)",border:"rgba(59,130,246,0.3)"},
-                {label:"Conjoints",amount:conj30,faded:"#6ee7b7",softBg:"rgba(16,185,129,0.15)",border:"rgba(16,185,129,0.3)"},
-              ].map(({label,amount,faded,softBg,border})=>(
-                <div key={label} style={{background:softBg,border:`1px solid ${border}`,borderRadius:16,padding:14}}>
-                  <p style={{margin:"0 0 2px",color:faded,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</p>
-                  <p style={{margin:"0 0 1px",color:"white",fontSize:20,fontWeight:800,letterSpacing:-0.5}}>{$(amount)}</p>
-                  <p style={{margin:0,color:faded,fontSize:10}}>30 prochains jours</p>
+                {label:"Perso",   p1:persoP1,p2:persoP2,faded:"#93c5fd",softBg:"rgba(59,130,246,0.15)",border:"rgba(59,130,246,0.3)"},
+                {label:"Conjoints",p1:conjP1, p2:conjP2, faded:"#6ee7b7",softBg:"rgba(16,185,129,0.15)",border:"rgba(16,185,129,0.3)"},
+              ].map(({label,p1,p2,faded,softBg,border})=>(
+                <div key={label} style={{background:softBg,border:`1px solid ${border}`,borderRadius:16,padding:"11px 13px"}}>
+                  <p style={{margin:"0 0 7px",color:faded,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</p>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+                    <span style={{color:faded,fontSize:9}}>1–14 {curMonthLabel}</span>
+                    <span style={{color:"white",fontSize:13,fontWeight:800}}>{$(p1)}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                    <span style={{color:faded,fontSize:9}}>15–{lastDayOfMonth} {curMonthLabel}</span>
+                    <span style={{color:"white",fontSize:13,fontWeight:800}}>{$(p2)}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -184,8 +199,10 @@
                   const days=daysUntil(date),u=urg(days);
                   const unpaid=items.filter(p=>!paid[p.key]);
                   const allDone=unpaid.length===0;
-                  const pAmt=unpaid.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
-                  const cAmt=unpaid.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
+                  const pEnd=getPeriodEnd(date);
+                  const regItems=upcoming.filter(p=>p.adjusted>=date&&p.adjusted<=pEnd&&!paid[p.key]);
+                  const pAmt=regItems.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
+                  const cAmt=regItems.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
                   const ds=date.toDateString();
                   const exp=isExpanded(ds,days);
                   return(
@@ -200,6 +217,7 @@
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
                           <div style={{textAlign:"right"}}>
+                            {(pAmt>0||cAmt>0)&&<div style={{color:"#94a3b8",fontSize:9,marginBottom:2}}>solde au {fd(pEnd,{day:"numeric",month:"short"})}</div>}
                             {pAmt>0&&<div style={{color:"#1d4ed8",fontSize:12,fontWeight:700}}>Perso : {$(pAmt)}</div>}
                             {cAmt>0&&<div style={{color:"#047857",fontSize:12,fontWeight:700}}>Conjoints : {$(cAmt)}</div>}
                           </div>
