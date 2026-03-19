@@ -42,8 +42,6 @@
       { id:"assur-vie",    name:"Assurances vie",     amount:227.00, days:[9],     account:"Perso",     emoji:"❤️" },
       { id:"pret-fen",     name:"Prêt fenêtres",      amount:102.73, days:[1],     account:"Perso",     emoji:"🪟" },
       { id:"telus-tel",    name:"Telus téléphone",    amount:99.00,  days:[15],    account:"Perso",     emoji:"📱" },
-      { id:"ftq-1",        name:"FTQ Reer",            amount:180.00, days:[1],     account:"Perso",     emoji:"💰" },
-      { id:"ftq-15",       name:"FTQ Reer",            amount:180.00, days:[15],    account:"Perso",     emoji:"💰" },
       { id:"assur-maison", name:"Assurances maison",  amount:139.00, days:[1],     account:"Perso",     emoji:"🏠" },
       { id:"alarme",       name:"Telus Alarme",        amount:45.00,  days:[1],     account:"Perso",     emoji:"🔒" },
       { id:"assur-auto",   name:"Assurances auto",    amount:175.00, days:[20],    account:"Perso",     emoji:"🚗" },
@@ -62,7 +60,7 @@
     const isHol=d=>getHolidays(d.getFullYear()).has(d.toDateString());
     const isWkd=d=>d.getDay()===0||d.getDay()===6;
     function prevBD(dt){const d=new Date(dt);while(isWkd(d)||isHol(d))d.setDate(d.getDate()-1);return d;}
-    function getPeriodEnd(d){return d.getDate()<15?new Date(d.getFullYear(),d.getMonth(),14):new Date(d.getFullYear(),d.getMonth()+1,0);}
+    function getPeriodEnd(d){const y=d.getFullYear(),m=d.getMonth(),a15=prevBD(new Date(y,m,15));return d.getTime()<=a15.getTime()?a15:prevBD(new Date(y,m+1,1));}
 
     // ─── Génération paiements ──────────────────────────────────────────────
     function generatePayments(monthsAhead=10){
@@ -108,12 +106,14 @@
       },[upcoming]);
 
       const curY=today.getFullYear(),curM=today.getMonth();
-      const p1Start=new Date(curY,curM,1),p1End=new Date(curY,curM,14);
-      const p2Start=new Date(curY,curM,15),p2End=new Date(curY,curM+1,0);
       const curMonthLabel=fd(today,{month:"short"});
-      const lastDayOfMonth=p2End.getDate();
-      const p1Pmts=allPayments.filter(p=>p.adjusted>=p1Start&&p.adjusted<=p1End&&!paid[p.key]);
-      const p2Pmts=allPayments.filter(p=>p.adjusted>=p2Start&&p.adjusted<=p2End&&!paid[p.key]);
+      const lastDayOfMonth=new Date(curY,curM+1,0).getDate();
+      const adj15Cur=prevBD(new Date(curY,curM,15));
+      const p1EndDay=adj15Cur.getDate();
+      const p2StartDate=new Date(adj15Cur.getTime()+86400000);
+      const p2StartDayNum=p2StartDate.getDate();
+      const p1Pmts=allPayments.filter(p=>p.adjusted>=new Date(curY,curM,1)&&p.adjusted<=adj15Cur&&!paid[p.key]);
+      const p2Pmts=allPayments.filter(p=>p.adjusted>=p2StartDate&&p.adjusted<=new Date(curY,curM+1,0)&&!paid[p.key]);
       const persoP1=p1Pmts.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
       const conjP1=p1Pmts.filter(p=>p.account==="Conjoints").reduce((s,p)=>s+p.amount,0);
       const persoP2=p2Pmts.filter(p=>p.account==="Perso").reduce((s,p)=>s+p.amount,0);
@@ -166,11 +166,11 @@
                 <div key={label} style={{background:softBg,border:`1px solid ${border}`,borderRadius:16,padding:"11px 13px"}}>
                   <p style={{margin:"0 0 7px",color:faded,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{label}</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
-                    <span style={{color:faded,fontSize:9}}>1–14 {curMonthLabel}</span>
+                    <span style={{color:faded,fontSize:9}}>1–{p1EndDay} {curMonthLabel}</span>
                     <span style={{color:"white",fontSize:13,fontWeight:800}}>{$(p1)}</span>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                    <span style={{color:faded,fontSize:9}}>15–{lastDayOfMonth} {curMonthLabel}</span>
+                    <span style={{color:faded,fontSize:9}}>{p2StartDayNum}–{lastDayOfMonth} {curMonthLabel}</span>
                     <span style={{color:"white",fontSize:13,fontWeight:800}}>{$(p2)}</span>
                   </div>
                 </div>
