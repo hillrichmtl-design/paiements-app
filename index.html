@@ -60,7 +60,7 @@
     const isHol=d=>getHolidays(d.getFullYear()).has(d.toDateString());
     const isWkd=d=>d.getDay()===0||d.getDay()===6;
     function prevBD(dt){const d=new Date(dt);while(isWkd(d)||isHol(d))d.setDate(d.getDate()-1);return d;}
-    function getPeriodEnd(d){const y=d.getFullYear(),m=d.getMonth(),a15=prevBD(new Date(y,m,15));return d.getTime()<=a15.getTime()?a15:prevBD(new Date(y,m+1,1));}
+    function getPeriodEnd(d){const y=d.getFullYear(),m=d.getMonth(),a15=prevBD(new Date(y,m,15));const p1End=a15.getDate()===15?new Date(y,m,14):a15;return d.getTime()<=p1End.getTime()?p1End:new Date(y,m+1,0);}
 
     // ─── Génération paiements ──────────────────────────────────────────────
     function generatePayments(monthsAhead=10){
