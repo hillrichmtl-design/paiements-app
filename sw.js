@@ -1,14 +1,9 @@
-const CACHE = "mes-paiements-v9";
+const CACHE = "mes-paiements-v10";
 const ASSETS = [
   "./",
   "./index.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png",
-  "./icon-180.png",
-  "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"
+  "https://unpkg.com/react@18/umd/react.production.min.js",
+  "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
 ];
 
 self.addEventListener("install", e => {
@@ -27,12 +22,14 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-      if (res && res.status === 200 && e.request.method === "GET") {
-        const clone = res.clone();
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(resp => {
+        if (!resp || resp.status !== 200 || resp.type === "opaque") return resp;
+        const clone = resp.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
-      return res;
-    }))
+        return resp;
+      }).catch(() => caches.match("./index.html"));
+    })
   );
 });
